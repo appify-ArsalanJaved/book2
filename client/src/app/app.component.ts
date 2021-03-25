@@ -1,4 +1,4 @@
-import {Component, ElementRef, ViewChild} from '@angular/core';
+import {Component, ElementRef, OnInit, ViewChild} from '@angular/core';
 import {FormControl} from '@angular/forms';
 import {MatAutocompleteSelectedEvent, MatAutocomplete} from '@angular/material/autocomplete';
 import {MatChipInputEvent} from '@angular/material/chips';
@@ -7,102 +7,98 @@ import {map, startWith} from 'rxjs/operators';
 import {COMMA, ENTER} from '@angular/cdk/keycodes';
 import { IWorker, workers } from './workers';
 import { departs, IDepartment } from './departments';
-import { tap , filter, scan } from 'rxjs/operators';
 import { of } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { environment } from 'src/environments/environment';
 
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
 })
-export class AppComponent {
-  visible = true;
-  selectable = true;
-  removable = true;
-  isDepart = false;
-  separatorKeysCodes: number[] = [ENTER, COMMA];
-  fruitCtrl = new FormControl();
-  filteredFruits: Observable<IDepartment[]>;
+export class AppComponent implements OnInit {
 
-  filteredDepartments: Observable<IDepartment[]>;
-  departmentsSave: IDepartment[] = [];
-  filteredWorkers: Observable<IWorker[]>;
+  IsThisWeek =false;
+  IsThisMonth =false;
+  selected_departments=[];
+  Departments = [];
 
-  fruits: string[] = [];
-  companyEmployees: Observable<number[]>;
-  companyEmployeesAll: Observable<number[]>;
-  allFruits: IDepartment[] = departs;
+  Employees=[];
 
+  Filtered_Employees =[];
+  constructor( private http: HttpClient,) {}
 
-  public workers: IWorker[] = workers;
-  public departs: IDepartment[] = departs;
-
-  @ViewChild('fruitInput') fruitInput: ElementRef<HTMLInputElement>;
-  @ViewChild('auto') matAutocomplete: MatAutocomplete;
-
-  constructor() {
-    this.filteredFruits = this.fruitCtrl.valueChanges.pipe(
-        startWith(null),
-        map((fruit: IDepartment | null) => fruit ? this._filter(fruit) : this.allFruits.slice()));
-    }
-
-  add(event: MatChipInputEvent): void {
-    const input = event.input;
-    const value = event.value;
-
-    // Add our fruit
-    if ((value || '').trim()) {
-      this.fruits.push(value.trim());
-    }
-
-    // Reset the input value
-    if (input) {
-      input.value = '';
-    }
-
-    this.fruitCtrl.setValue(null);
+  ngOnInit(): void {
+    
+    this.getEmployees();
+    this.getDepartments();
+    
   }
 
-  remove(fruit: string): void {
-    const index = this.fruits.indexOf(fruit);
+  getEmployees(){
 
-    if (index >= 0) {
-      this.fruits.splice(index, 1);
-      this.departmentsSave.splice(index, 1);
-      this.filteredDepartments = of(this.departmentsSave);
-    }
-    if(this.fruits.length == 0){
-      this.isDepart = false;
-    }
-    this.refreshEmpls();
+    this.http.get(environment.api_url+"/employees").subscribe((data:any) => {
+      this.Employees = data;
+      this.Filtered_Employees = this.Employees;
+    } );
   }
 
-  refreshEmpls(): void {
-    this.filteredDepartments = of(this.departmentsSave);
-      this.companyEmployees = this.filteredDepartments.pipe(
-        map((departments: IDepartment[]): number[] => {
-          const employees: number[] = [];
-          for (const dept of departments) {
-            employees.push(...dept.employees); // Could this be null? could it have duplicates?
-          }
-          return employees;
-        })
-      );
+  getDepartments(){
+
+    this.http.get(environment.api_url+"/departments").subscribe((data:any) => this.Departments = data );
   }
 
-  selected(event: MatAutocompleteSelectedEvent): void {
-    if(!this.fruits.some(s => s.includes(event.option.viewValue))){
-      this.fruits.push(event.option.viewValue);
-      this.departmentsSave.push(event.option.value);
-      this.fruitInput.nativeElement.value = '';
-      this.isDepart = true;
-      this.fruitCtrl.setValue(null);
-      this.refreshEmpls();
+
+  filter(){
+
+    if(!this.IsThisMonth && !this.IsThisWeek && this.selected_departments.length<=0)
+       this.Filtered_Employees = this.Employees;
+    else{
+
+      this.Filtered_Employees = [];
+      if(this.selected_departments.length>0){
+        this.selected_departments.forEach(dept => {
+          var filtered =  this.Employees.filter(p=> dept.employeeIds.indexOf(p.id)>=0); 
+          this.Filtered_Employees.push(...filtered);
+        });
+      }
+      else{
+        this.Filtered_Employees = this.Employees;
+      }
+
+      if(this.IsThisWeek){
+        this.Filtered_Employees = this.Filtered_Employees.filter(p=>this.isDateInThisWeek(p.birthday)==true);
+      }
+
+      if(this.IsThisMonth){
+        this.Filtered_Employees = this.Filtered_Employees.filter(p=>this.isDateInThisMonth(p.birthday)==true);
+      }
     }
   }
 
-  private _filter(value: IDepartment): IDepartment[] {
-    const filterValue = value.name.toLowerCase();
-    return this.allFruits.filter(fruit => fruit.name.toLowerCase().indexOf(filterValue) === 0);
+
+  isDateInThisWeek(date) {
+    date =  new Date(date);
+    const todayObj = new Date();
+    const todayDate = todayObj.getDate();
+    const todayDay = todayObj.getDay();
+  
+    // get first date of week
+    const firstDayOfWeek = new Date(todayObj.setDate(todayDate - todayDay));
+  
+    // get last date of week
+    const lastDayOfWeek = new Date(firstDayOfWeek);
+    lastDayOfWeek.setDate(lastDayOfWeek.getDate() + 6);
+  
+    date.setFullYear(lastDayOfWeek.getFullYear());
+    // if date is equal or within the first and last dates of the week
+    return date >= firstDayOfWeek && date <= lastDayOfWeek;
   }
+
+  isDateInThisMonth(date) {
+    date =  new Date(date);
+    const todayObj = new Date();
+    return todayObj.getMonth() == date.getMonth();
+  }
+
 }

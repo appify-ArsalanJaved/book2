@@ -10,6 +10,23 @@
 .profile img {
     width: 50px;
     height: 50px;
+    border-radius: 50px;
+    float: left;
+}
+.profile{
+    min-height: 54px;
+    border-bottom: 1px solid #b9b3b3;
+    margin-bottom: 10px; 
+}
+.name{
+/* background-color: red; */
+}
+.detail{
+    float: left;
+    padding-left: 10px;
+}
+.date{
+    /* background-color: red; */
 }
 
 
@@ -26,4 +43,7 @@
 .example-chip-list {
     margin-top:25px;
     width: 100%;
+  }
+  .grid-container{
+      
   }
